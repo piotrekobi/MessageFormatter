@@ -1,5 +1,5 @@
 from jaraco import clipboard
-from tkinter.ttk import Frame, Entry, Button
+from tkinter.ttk import Frame, Entry, Button, Checkbutton
 import markdown
 import tkinter as tk
 import re
@@ -10,7 +10,7 @@ class App(tk.Tk):
     def __init__(self):
         super().__init__()
 
-        self.geometry("680x400")
+        self.geometry("680x500")
         self.attributes("-topmost", 1)
         self.title("Message formatter")
         self.protocol("WM_DELETE_WINDOW", self.on_close)
@@ -27,35 +27,43 @@ class App(tk.Tk):
             self.tags = json.load(f)
 
     def copy_text(self):
-        text = ""
+        self.text = ""
+
+        def add_bullet_point(new_text):
+            self.text += "* "
+            self.text += new_text
+            self.text += "\n"
+
         for entry in self.entries:
             entry_text = entry.get("1.0", "end-1c")
             if entry_text != "":
+                add_bullet_point(entry_text)
+        
+        for var, var_text in self.checkVariables:
+            if var.get():
+                add_bullet_point(var_text)
 
-                text += "* "
-                text += entry_text
-                text += "\n"
 
-        text = re.sub(
+        self.text = re.sub(
             r"#(\d\d\d\d\d)",
-            r"[#\1](https://github.com/PaddlePaddle/Paddle/pull/\1)", text)
-        text = re.sub(r"(PADDLEQ-\d\d\d\d)",
-                      r"[\1](https://jira.devtools.intel.com/browse/\1)", text)
+            r"[#\1](https://github.com/PaddlePaddle/Paddle/pull/\1)", self.text)
+        self.text = re.sub(r"(PADDLEQ-\d\d\d\d)",
+                      r"[\1](https://jira.devtools.intel.com/browse/\1)", self.text)
 
         found_tags = []
-        found_tags.extend(re.findall(r"#\d\d\d\d\d", text))
-        found_tags.extend(re.findall(r"PADDLEQ-\d\d\d\d", text))
+        found_tags.extend(re.findall(r"#\d\d\d\d\d", self.text))
+        found_tags.extend(re.findall(r"PADDLEQ-\d\d\d\d", self.text))
         new_tags = set([tag for tag in found_tags if tag not in self.tags])
         self.tags.extend(new_tags)
         self.update_list_box()
 
-        output = markdown.markdown(text)
+        output = markdown.markdown(self.text)
         clipboard.copy_html(output)
 
     def update_entry_visibility(self):
         for i, entry in enumerate(self.entries):
             if i < self.visible_entries:
-                entry.grid(row=i + 1, column=0, columnspan=3, sticky="NESW")
+                entry.grid(row=i + 2, column=0, columnspan=5, sticky="NESW")
             else:
                 entry.grid_remove()
 
@@ -75,7 +83,7 @@ class App(tk.Tk):
         self.last_index = self.last_entry.index(tk.INSERT)
 
     def add_entry(self):
-        if self.visible_entries < 10:
+        if self.visible_entries < 7:
             self.visible_entries += 1
             self.update_entry_visibility()
 
@@ -112,12 +120,40 @@ class App(tk.Tk):
         copyButton = Button(self.frame,
                             text="Copy to clipboard",
                             command=self.copy_text)
+
+        self.checkVariables = [[tk.IntVar(), "Meetings"],
+                               [tk.IntVar(), "Consultations"],
+                               [tk.IntVar(), "Reviews"], [tk.IntVar(), "Learning Time"], [tk.IntVar(), "1:1"]]
+
+        meetingCheckBox = Checkbutton(self.frame,
+                                      text="Meetings",
+                                      variable=self.checkVariables[0][0])
+        consultationsCheckBox = Checkbutton(self.frame,
+                                            text="Consultations",
+                                            variable=self.checkVariables[1][0])
+        reviewsCheckBox = Checkbutton(self.frame,
+                                      text="Reviews",
+                                      variable=self.checkVariables[2][0])
+        learningCheckBox = Checkbutton(self.frame,
+                                      text="Learning Time",
+                                      variable=self.checkVariables[3][0])
+        oneCheckBox = Checkbutton(self.frame,
+                                  text="1:1",
+                                  variable=self.checkVariables[4][0])
+
         self.tagListBox = tk.Listbox(self.frame, width=15, height=15)
 
         addButton.grid(row=0, column=0, sticky="NESW")
         removeButton.grid(row=0, column=1, sticky="NESW")
         copyButton.grid(row=0, column=2, sticky="NESW")
-        self.tagListBox.grid(row=1, column=3, rowspan=5, sticky="NESW")
+
+        meetingCheckBox.grid(row=1, column=0, sticky="NESW")
+        consultationsCheckBox.grid(row=1, column=1, sticky="NESW")
+        reviewsCheckBox.grid(row=1, column=2, sticky="NESW")
+        learningCheckBox.grid(row=1, column=3, sticky="NESW")
+        oneCheckBox.grid(row=1, column=4, sticky="NESW")
+
+        self.tagListBox.grid(row=1, column=5, rowspan=5, sticky="NESW")
         self.update_list_box()
 
         self.tagListBox.bind("<Double-Button-1>",
